@@ -1,16 +1,20 @@
 <script>
 async function load() {
-  const data = await fetch("https://bot.krishan-p5696.workers.dev")
-    .then(r => r.json());
+  try {
+    const res = await fetch("https://bot.krishan-p5696.workers.dev");
+    const data = await res.json();
 
-  let out = "";
-  for (const item of data) {
-    out += `${item.key}: ${item.value}\n`;
+    let out = "";
+    for (const item of data) {
+      out += item.value + "\n";
+    }
+
+    document.getElementById("out").innerText = out || "(no data)";
+  } catch (e) {
+    document.getElementById("out").innerText = "Error: " + e;
   }
-
-  document.getElementById("out").innerText = out;
 }
 
-setInterval(load, 1000);
 load();
+setInterval(load, 1000);
 </script>
