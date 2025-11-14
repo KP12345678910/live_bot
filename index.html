@@ -1,0 +1,9 @@
+<pre id="out">Loading...</pre>
+<script>
+async function load() {
+  const t = await fetch("https://bot.krishan-p5696.workers.dev").then(r => r.text());
+  document.getElementById("out").innerText = t;
+}
+setInterval(load, 1000);
+load();
+</script>
