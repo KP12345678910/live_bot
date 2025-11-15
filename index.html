@@ -1,14 +1,14 @@
-<!DOCTYPE html>
-<html>
-<body>
-
-<pre id="out">Loading…</pre>
-
 <script>
 async function load() {
   try {
     const res = await fetch("https://bot.krishan-p5696.workers.dev");
-    const data = await res.json();
+    const txt = await res.text();
+
+    // DEBUG: show raw response text
+    document.getElementById("out").innerText = txt;
+
+    // Then try JSON parse
+    const data = JSON.parse(txt);
 
     let out = "";
     for (const item of data) {
@@ -24,6 +24,3 @@ async function load() {
 load();
 setInterval(load, 1000);
 </script>
-
-</body>
-</html>
