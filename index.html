@@ -6,13 +6,17 @@
 <pre id="out">Loading…</pre>
 
 <script>
-// Worker data
 async function load() {
   try {
     const res = await fetch("https://bot.krishan-p5696.workers.dev");
     const data = await res.json();
-    document.getElementById("out").innerText =
-      data.map(x => x.value).join("\n") || "(no data)";
+
+    let out = "";
+    for (const item of data) {
+      out += item.value + "\n";
+    }
+
+    document.getElementById("out").innerText = out || "(no data)";
   } catch (e) {
     document.getElementById("out").innerText = "Error: " + e;
   }
@@ -21,6 +25,7 @@ async function load() {
 load();
 setInterval(load, 1000);
 </script>
+
 
 
 <h2>Live Prices</h2>
