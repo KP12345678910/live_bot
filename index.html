@@ -1,26 +1,8 @@
-<script>
-async function load() {
-  try {
-    const res = await fetch("https://bot.krishan-p5696.workers.dev");
-    const txt = await res.text();
+<!DOCTYPE html>
+<html>
+<body>
 
-    // DEBUG: show raw response text
-    document.getElementById("out").innerText = txt;
+<pre id="out">TEST</pre>
 
-    // Then try JSON parse
-    const data = JSON.parse(txt);
-
-    let out = "";
-    for (const item of data) {
-      out += item.value + "\n";
-    }
-
-    document.getElementById("out").innerText = out || "(no data)";
-  } catch (e) {
-    document.getElementById("out").innerText = "Error: " + e;
-  }
-}
-
-load();
-setInterval(load, 1000);
-</script>
+</body>
+</html>
