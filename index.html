@@ -6,15 +6,13 @@
 <pre id="out">Loading…</pre>
 
 <script>
+// Worker data
 async function load() {
   try {
     const res = await fetch("https://bot.krishan-p5696.workers.dev");
     const data = await res.json();
-
-    let out = "";
-    for (const item of data) out += item.value + "\n";
-
-    document.getElementById("out").innerText = out || "(no data)";
+    document.getElementById("out").innerText =
+      data.map(x => x.value).join("\n") || "(no data)";
   } catch (e) {
     document.getElementById("out").innerText = "Error: " + e;
   }
@@ -29,6 +27,9 @@ setInterval(load, 1000);
 <pre id="prices">loading…</pre>
 
 <script>
+// ------------------------------
+// MOST EFFICIENT POSSIBLE VERSION
+// ------------------------------
 async function loadCoins() {
     const r = await fetch("https://api.hyperliquid.xyz/info", {
         method: "POST",
@@ -41,15 +42,18 @@ async function loadCoins() {
         .map(u => u.name);
 }
 
-let prices = {};
-let frame = false;
+let prices = {};         // coin -> last price
+let needsRender = false; // render flag
 
-function flush() {
+function render() {
     const block = document.getElementById("prices");
-    let out = "";
-    for (const [c,p] of Object.entries(prices)) out += `${c}: ${p}\n`;
-    block.textContent = out;
-    frame = false;
+
+    // FASTEST POSSIBLE RENDER: array → join → textContent
+    block.textContent = Object.entries(prices)
+        .map(([c, p]) => `${c}: ${p}`)
+        .join("\n");
+
+    needsRender = false;
 }
 
 function subscribe(coins) {
@@ -58,30 +62,35 @@ function subscribe(coins) {
     ws.onopen = () => {
         coins.forEach(c => {
             ws.send(JSON.stringify({
-                method:"subscribe",
-                subscription:{type:"candle",coin:c,interval:"1h"}
+                method: "subscribe",
+                subscription: { type: "candle", coin: c, interval: "1h" }
             }));
         });
     };
 
     ws.onmessage = e => {
         let msgs;
-        try { msgs = JSON.parse(e.data); } catch { return; }
+        try { msgs = JSON.parse(e.data); }
+        catch { return; }
         if (!Array.isArray(msgs)) msgs = [msgs];
 
-        msgs.forEach(m => {
-            if (m.channel !== "candle") return;
+        for (const m of msgs) {
+            if (m.channel !== "candle") continue;
             const d = m.data;
-            prices[d.s] = d.c;
-        });
+            prices[d.s] = d.c;  // store latest price
+        }
 
-        if (!frame) {
-            frame = true;
-            setTimeout(flush, 80);
+        // REQUEST ANIMATION FRAME RENDER (fastest scheduling)
+        if (!needsRender) {
+            needsRender = true;
+            requestAnimationFrame(render);
         }
     };
 }
 
+// ------------------------------
+// MAIN
+// ------------------------------
 (async () => {
     const coins = await loadCoins();
     subscribe(coins);
