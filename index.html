@@ -33,71 +33,66 @@ setInterval(load, 1000);
   <thead><tr><th>Coin</th><th>Price</th></tr></thead>
   <tbody></tbody>
 </table>
-
 <script>
-// --------------------------
-// 1) GET METADATA
-// --------------------------
 async function loadCoins() {
     const r = await fetch("https://api.hyperliquid.xyz/info", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type: "metaAndAssetCtxs" })
     });
-    const data = await r.json();
-    const universe = data[0].universe;     // list of coin metadata
-
-    return universe
-        .filter(x => !x.isDelisted)
-        .map(x => x.name);                 // coin symbols
+    const x = await r.json();
+    return x[0].universe
+        .filter(u => !u.isDelisted)
+        .map(u => u.name);
 }
 
-// --------------------------
-// 2) OPEN WS + SUBSCRIBE
-// --------------------------
+let buf = {};     // coin -> price
+let frame = false;
+
+// batch render every ~100ms
+function flush() {
+    const tbody = document.querySelector("#tbl tbody");
+    let html = "";
+    for (const [c,p] of Object.entries(buf)) {
+        html += `<tr><td>${c}</td><td>${p}</td></tr>`;
+    }
+    tbody.innerHTML = html;
+    frame = false;
+}
+
 function subscribe(coins) {
     const ws = new WebSocket("wss://api.hyperliquid.xyz/ws");
-    const tbody = document.querySelector("#tbl tbody");
-    const rows = {};  // coin -> row element
 
     ws.onopen = () => {
-        coins.forEach(c => {
-            ws.send(JSON.stringify({
-                method: "subscribe",
-                subscription: { type: "candle", coin: c, interval: "1h" }
-            }));
-        });
+        // send all subscribe messages fast
+        const arr = coins.map(c => ({
+            method:"subscribe",
+            subscription:{type:"candle",coin:c,interval:"1h"}
+        }));
+        arr.forEach(m => ws.send(JSON.stringify(m)));
     };
 
-    ws.onmessage = ev => {
+    ws.onmessage = e => {
         let msgs;
-        try { msgs = JSON.parse(ev.data); }
-        catch { return; }
+        try { msgs = JSON.parse(e.data); } catch { return; }
         if (!Array.isArray(msgs)) msgs = [msgs];
 
-        msgs.forEach(msg => {
-            if (msg.channel !== "candle") return;
-            const d = msg.data;
-            const coin = d.s;
-            const price = d.c;
+        for (const m of msgs) {
+            if (m.channel !== "candle") continue;
+            const d = m.data;
+            buf[d.s] = d.c;
+        }
 
-            if (!rows[coin]) {
-                const tr = document.createElement("tr");
-                tr.innerHTML = `<td>${coin}</td><td id="p-${coin}">-</td>`;
-                tbody.appendChild(tr);
-                rows[coin] = true;
-            }
-            document.getElementById(`p-${coin}`).innerText = price;
-        });
+        if (!frame) {
+            frame = true;
+            setTimeout(flush, 100);
+        }
     };
 }
 
-// --------------------------
-// 3) MAIN
-// --------------------------
 (async () => {
     const coins = await loadCoins();
-    subscribe(coins);
+    subscribe(coins);   // subscribe to ALL coins
 })();
 </script>
 
