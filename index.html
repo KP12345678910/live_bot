@@ -34,6 +34,9 @@ setInterval(load, 1000);
   <tbody></tbody>
 </table>
 <script>
+// --------------------------
+// 1) load coins (same as before)
+// --------------------------
 async function loadCoins() {
     const r = await fetch("https://api.hyperliquid.xyz/info", {
         method: "POST",
@@ -46,30 +49,40 @@ async function loadCoins() {
         .map(u => u.name);
 }
 
-let buf = {};     // coin -> price
-let frame = false;
+// --------------------------
+// 2) build table ONCE
+// --------------------------
+const priceCells = {};  // coin -> <td>
 
-// batch render every ~100ms
-function flush() {
+function buildTable(coins) {
     const tbody = document.querySelector("#tbl tbody");
     let html = "";
-    for (const [c,p] of Object.entries(buf)) {
-        html += `<tr><td>${c}</td><td>${p}</td></tr>`;
-    }
+
+    coins.forEach(c => {
+        html += `<tr><td>${c}</td><td id="p-${c}">-</td></tr>`;
+    });
+
     tbody.innerHTML = html;
-    frame = false;
+
+    // cache references to td elements
+    coins.forEach(c => {
+        priceCells[c] = document.getElementById(`p-${c}`);
+    });
 }
 
+// --------------------------
+// 3) subscribe and update direct DOM refs
+// --------------------------
 function subscribe(coins) {
     const ws = new WebSocket("wss://api.hyperliquid.xyz/ws");
 
     ws.onopen = () => {
-        // send all subscribe messages fast
-        const arr = coins.map(c => ({
-            method:"subscribe",
-            subscription:{type:"candle",coin:c,interval:"1h"}
-        }));
-        arr.forEach(m => ws.send(JSON.stringify(m)));
+        coins.forEach(c => {
+            ws.send(JSON.stringify({
+                method: "subscribe",
+                subscription: { type: "candle", coin: c, interval: "1h" }
+            }));
+        });
     };
 
     ws.onmessage = e => {
@@ -77,22 +90,22 @@ function subscribe(coins) {
         try { msgs = JSON.parse(e.data); } catch { return; }
         if (!Array.isArray(msgs)) msgs = [msgs];
 
-        for (const m of msgs) {
-            if (m.channel !== "candle") continue;
-            const d = m.data;
-            buf[d.s] = d.c;
-        }
-
-        if (!frame) {
-            frame = true;
-            setTimeout(flush, 100);
-        }
+        msgs.forEach(msg => {
+            if (msg.channel !== "candle") return;
+            const d = msg.data;
+            const td = priceCells[d.s];
+            if (td) td.innerText = d.c;  // ONLY update this cell
+        });
     };
 }
 
+// --------------------------
+// 4) main
+// --------------------------
 (async () => {
     const coins = await loadCoins();
-    subscribe(coins);   // subscribe to ALL coins
+    buildTable(coins);      // build once
+    subscribe(coins);       // update only changed cells
 })();
 </script>
 
